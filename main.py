@@ -126,8 +126,11 @@ class Game(QWidget):
         self.left_road = QVBoxLayout()
         self.middle = QHBoxLayout()
 
+        self.chat = Chat()
+        self.chat.message_box.returnPressed.connect(self.chat.send_message)
+
         self.middle.addItem(self.left_road)
-        self.middle.addWidget(Chat())
+        self.middle.addWidget(self.chat)
         self.middle.addItem(self.right_road)
 
         self.lower_road = QHBoxLayout()
@@ -138,11 +141,18 @@ class Game(QWidget):
         for i in range(9): self.left_road.addWidget(Field("Field"))
 
         game_box = QFormLayout()
+        players_box = QHBoxLayout()
+        players_box = PlayersBox(4)
+
+        layout = QHBoxLayout()
+
         game_box.addRow(self.upper_road)
         game_box.addRow(self.middle)
         game_box.addRow(self.lower_road)
-
-        self.setLayout(game_box)
+        
+        layout.addWidget(players_box)
+        layout.addItem(game_box)
+        self.setLayout(layout)
 
 class Chat(QWidget):
     def __init__(self):
@@ -153,21 +163,45 @@ class Chat(QWidget):
         self.height = 200
         self.setMinimumSize(200, 200)
 
-        self.chatlog = QTextEdit()
-        self.chatlog.setReadOnly(True)
+        self.chat_log = QTextEdit()
+        self.chat_log.setReadOnly(True)
         self.message_box = QLineEdit()
+        self.message_box.placeholderText = "Напишите гадости соперникам!"
 
         layout = QVBoxLayout()
-        layout.addWidget(self.chatlog)
+        layout.addWidget(self.chat_log)
         layout.addWidget(self.message_box)
 
         self.setLayout(layout)
+
+    def send_message(self):
+        message = self.message_box.text()
+
+        if message == "/clear":
+            self.message_box.setText("")
+            self.chat_log.setText("")
+            return
+        
+        self.chat_log.setText(self.chat_log.toPlainText() + f"\nPlayer: {message}")
+        self.message_box.setText("")
+
 
 class Field(QPushButton):
     def __init__(self, text):
         super().__init__(text)
 
         self.setFixedSize(60, 60)        
+
+class PlayersBox(QWidget):
+    def __init__(self, players_amount: int):
+        super().__init__()
+        
+        layout = QVBoxLayout()
+        for i in range(players_amount):
+            layout.addWidget(QLabel(f"Player {i+1}: 15000$"))
+
+        self.setLayout(layout)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
