@@ -3,6 +3,8 @@ import sys
 from PyQt6.QtGui import QIcon, QFont, QMouseEvent
 from PyQt6.QtCore import QSize, Qt, QRect
 from PyQt6.QtWidgets import (
+    QSizePolicy,
+    QSpacerItem,
     QApplication,
     QMainWindow,
     QStackedWidget,
@@ -120,8 +122,8 @@ class Game(QWidget):
     def __init__(self):
         super().__init__()
 
+        # Actual Game Items
         self.upper_road = QHBoxLayout()
-
         self.right_road = QVBoxLayout()
         self.left_road = QVBoxLayout()
         self.middle = QHBoxLayout()
@@ -141,38 +143,49 @@ class Game(QWidget):
         for i in range(9): self.left_road.addWidget(Field("Field"))
 
         game_box = QFormLayout()
-        players_box = QHBoxLayout()
-        players_box = PlayersBox(4)
-
-        layout = QHBoxLayout()
 
         game_box.addRow(self.upper_road)
         game_box.addRow(self.middle)
         game_box.addRow(self.lower_road)
+        game_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        layout.addWidget(players_box)
+        # Stats and other Items
+        self.players_stats = PlayersBox(4)
+        self.quit_button = QPushButton("Quit the Game")
+
+        players_box = QVBoxLayout()
+        players_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        players_box.addWidget(self.players_stats)
+        players_box.addWidget(self.quit_button)
+
+        layout = QHBoxLayout()
+
+        layout.addItem(QSpacerItem(20, 40, hPolicy=QSizePolicy.Policy.Expanding, vPolicy=QSizePolicy.Policy.Expanding))
+        layout.addItem(players_box)
         layout.addItem(game_box)
+        layout.addItem(QSpacerItem(20, 40, hPolicy=QSizePolicy.Policy.Expanding, vPolicy=QSizePolicy.Policy.Expanding))
+
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setLayout(layout)
 
 class Chat(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.sizeHint = (None, None)
-        self.width = 200
-        self.height = 200
-        self.setMinimumSize(200, 200)
+        self.setMinimumSize(400,400)
+        self.setMaximumSize(Field.FIELD_MAX_SIZE[0]*9, 1200)
 
         self.chat_log = QTextEdit()
         self.chat_log.setReadOnly(True)
         self.message_box = QLineEdit()
-        self.message_box.placeholderText = "Напишите гадости соперникам!"
+        self.message_box.setPlaceholderText("Напишите гадости соперникам!")
 
         layout = QVBoxLayout()
         layout.addWidget(self.chat_log)
         layout.addWidget(self.message_box)
 
         self.setLayout(layout)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
 
     def send_message(self):
         message = self.message_box.text()
@@ -187,10 +200,17 @@ class Chat(QWidget):
 
 
 class Field(QPushButton):
+
+    # Attributes
+    FIELD_MIN_SIZE = (60, 60)
+    FIELD_MAX_SIZE = (80, 120)
+
     def __init__(self, text):
         super().__init__(text)
 
-        self.setFixedSize(60, 60)        
+        self.setMinimumSize(60, 60)  
+        self.setMaximumSize(80, 120)   
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
 class PlayersBox(QWidget):
     def __init__(self, players_amount: int):
@@ -201,7 +221,6 @@ class PlayersBox(QWidget):
             layout.addWidget(QLabel(f"Player {i+1}: 15000$"))
 
         self.setLayout(layout)
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -234,6 +253,8 @@ class MainWindow(QMainWindow):
 
         self.friends_setup_container.player_amount_combobox.currentIndexChanged.connect(self.friends_setup_container.update_player_list)
         self.friends_setup_container.start_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(3))
+
+        self.game_container.quit_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
 
                 
         # Setup actions
