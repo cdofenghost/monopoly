@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.gamemodes_container)
         self.stacked_widget.addWidget(self.via_lan_container)
         self.stacked_widget.addWidget(self.friends_setup_container)
+        self.stacked_widget.setStyleSheet('background-color: #272A2E')
 
         # Labels
         

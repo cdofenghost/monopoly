@@ -32,6 +32,7 @@ from .classes.player import Player
 from .classes.fields import Field as FieldInGame
 from .classes.fields import Property
 from .classes.map import Map
+from .classes.manager import GameManager
 
 class ViaLANChoice(QWidget):
     def __init__(self):
@@ -175,7 +176,7 @@ class Game(QWidget):
         self.lower_road = QHBoxLayout()
         self.main_map = Map()
         self.main_map.load_map()
-        
+
         for field in self.main_map.map[:11]: self.upper_road.addWidget(Field(field))
         for field in self.main_map.map[11:20]: self.right_road.addWidget(Field(field, form_direction='right'))
         for field in self.main_map.map[30:19:-1]: self.lower_road.addWidget(Field(field, form_direction='down'))
@@ -191,6 +192,7 @@ class Game(QWidget):
         # Stats and other Items
         self.players_stats = PlayersBox(player_list=player_list)
         self.quit_button = QPushButton("Покинуть игру")
+        self.quit_button.setStyleSheet("background-color: #AA0000; border-radius: 4px; color: #F3F3F3;")
 
         players_box = QVBoxLayout()
         players_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -207,10 +209,9 @@ class Game(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setLayout(layout)
 
-    def load_game_session(self, players: list[Player]):
-        pass
-    def next_turn(self):
-        pass
+        # Game Interaction Manager
+        self.game_manager = GameManager(self)
+        self.game_manager.start_game()
 
 class Chat(QWidget):
     def __init__(self):
@@ -221,7 +222,9 @@ class Chat(QWidget):
 
         self.chat_log = QTextEdit()
         self.chat_log.setReadOnly(True)
+        self.chat_log.setStyleSheet("background-color: #F3F3F3; border-radius: 10px;")
         self.message_box = QLineEdit()
+        self.message_box.setStyleSheet("background-color: #F3F3F3; border-radius: 4px;")
         self.message_box.setPlaceholderText("Напишите гадости соперникам!")
 
         layout = QVBoxLayout()
@@ -251,6 +254,8 @@ class Field(QWidget):
     def __init__(self, field: FieldInGame, form_direction: str = 'up'):
         # Widget settings
         super().__init__()
+        self.setStyleSheet('background-color: #F3F3F3')
+
         self.field_layout = QFormLayout()
         self.field_layout.setContentsMargins(0, 0, 0, 0)
         self.field_layout.setSpacing(0)
@@ -325,10 +330,11 @@ class PlayersBox(QWidget):
             color_flag.setFixedSize(32, 32)
             color_flag.setStyleSheet(f"background-color: {player.color}; border-radius: 4px;")
 
+            label = QLabel(f"{player.name}: ${player.money}")
+            label.setStyleSheet('color: #F3F3F3;')
             container.addWidget(color_flag)
-            container.addWidget(QLabel(f"{player.name}: ${player.money}"))
+            container.addWidget(label)
             layout.addRow(container)
-
 
         self.setLayout(layout)
 
