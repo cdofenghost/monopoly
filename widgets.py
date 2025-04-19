@@ -1,8 +1,8 @@
 import sys
 import socket
 
-from PyQt6.QtGui import QIcon, QFont, QMouseEvent
-from PyQt6.QtCore import QSize, Qt, QRect
+from PyQt6.QtGui import QIcon, QFont, QMouseEvent, QColor
+from PyQt6.QtCore import QSize, Qt, QRect, pyqtSignal
 from PyQt6.QtWidgets import (
     QSizePolicy,
     QSpacerItem,
@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QMessageBox,
     QTextEdit,
+    QColorDialog,
 )
 
 from .server import Host
@@ -90,9 +91,12 @@ class GameSetupFriends(QWidget):
         self.player_list = QFormLayout()
 
         for i in range(n+2):
+            color_picker = ColorButton()
             label = QLabel(f"Игрок {i+1}: ")
             textbox = QLineEdit()
+            textbox.setPlaceholderText("Имя игрока")
             layout = QHBoxLayout()
+            layout.addWidget(color_picker)
             layout.addWidget(label)
             layout.addWidget(textbox)
             self.player_list.addRow(layout)
@@ -152,7 +156,7 @@ class GamemodeSettings(QWidget):
         self.setLayout(gamemode_box)
 
 class Game(QWidget):
-    def __init__(self):
+    def __init__(self, player_list: list[Player]):
         super().__init__()
 
         # Actual Game Items
@@ -185,7 +189,7 @@ class Game(QWidget):
         game_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Stats and other Items
-        self.players_stats = PlayersBox(4)
+        self.players_stats = PlayersBox(player_list=player_list)
         self.quit_button = QPushButton("Покинуть игру")
 
         players_box = QVBoxLayout()
@@ -311,11 +315,72 @@ class Field(QWidget):
         self.setLayout(self.field_layout)
 
 class PlayersBox(QWidget):
-    def __init__(self, players_amount: int):
+    def __init__(self, player_list: list[Player]):
         super().__init__()
         
-        layout = QVBoxLayout()
-        for i in range(players_amount):
-            layout.addWidget(QLabel(f"Игрок {i+1}: 15000$"))
+        layout = QFormLayout()
+        for player in player_list:
+            container = QHBoxLayout()
+            color_flag = QWidget()
+            color_flag.setFixedSize(32, 32)
+            color_flag.setStyleSheet(f"background-color: {player.color}; border-radius: 4px;")
+
+            container.addWidget(color_flag)
+            container.addWidget(QLabel(f"{player.name}: ${player.money}"))
+            layout.addRow(container)
+
 
         self.setLayout(layout)
+
+class ColorButton(QPushButton):
+    '''
+    Custom Qt Widget to show a chosen color.
+
+    Left-clicking the button shows the color-chooser, while
+    right-clicking resets the color to None (no-color).
+    '''
+
+    colorChanged = pyqtSignal(object)
+
+    def __init__(self, *args, color=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._color = None
+        self._default = color
+        self.pressed.connect(self.onColorPicker)
+
+        # Set the initial/default state.
+        self.setColor(self._default)
+
+    def setColor(self, color):
+        if color != self._color:
+            self._color = color
+            self.colorChanged.emit(color)
+
+        if self._color:
+            self.setStyleSheet("background-color: %s;" % self._color)
+        else:
+            self.setStyleSheet("")
+
+    def color(self):
+        return self._color
+
+    def onColorPicker(self):
+        '''
+        Show color-picker dialog to select color.
+
+        Qt will use the native dialog by default.
+
+        '''
+        dlg = QColorDialog()
+        if self._color:
+            dlg.setCurrentColor(QColor(self._color))
+
+        if dlg.exec():
+            self.setColor(dlg.currentColor().name())
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.RightButton:
+            self.setColor(self._default)
+
+        return super().mousePressEvent(e)
