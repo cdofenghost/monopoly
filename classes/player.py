@@ -8,6 +8,7 @@ class Player():
         self.owned_fields: list
         self.pledged_fields: list
         self.position = 0
+        self.in_jail: bool = False
 
     def offer(self, player: Self):
         pass

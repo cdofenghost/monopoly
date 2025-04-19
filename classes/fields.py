@@ -20,7 +20,7 @@ class Field():
         pass
 
     @abstractmethod
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         '''
         Description of a method.
         '''
@@ -30,49 +30,104 @@ class Taxes(Field):
     def __init__(self):
         self.name: str = "Налоги"
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         from random import randint
-        self.popup_text: str = f"Вы должны заплатить налог государству размером ${randint(200, 1500)}."
+        self.tax_price = randint(200, 1500)
+        self.popup_text: str = f"Вы должны заплатить налог государству размером ${self.tax_price}."
+
+        manager.show_popup_2b(content_text=self.popup_text,
+                              button_text1="Оплатить налог",
+                              button_text2="Обанкротиться",
+                              button_action1=lambda: self.pay_taxes(manager),
+                              button_action2=lambda: self.file_for_bankruptcy(manager))
+        
+    def pay_taxes(self, manager):
+        manager.current_player.money -= self.tax_price
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> оплатил налог размером ${self.tax_price}")
+        manager.destroy_popup()
+        manager.next_turn()
+
+    def file_for_bankruptcy(self, manager):
+        manager.file_bankruptcy(manager.current_player)
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
+        manager.destroy_popup()
+        manager.next_turn()
 
 class Jail(Field):
     def __init__(self):
         self.name: str = "Тюрьма"
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f"Вы отправляетесь в тюрьму за отмывание денег."
+
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="В тюрьму",
+                           button_action=lambda: self.move_player(manager))
+
+    def move_player(self, manager):
+        manager.log_message("<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> отправляется в тюрьму за отмывание денег.")
+        manager.current_player.in_jail = True
+        manager.move_player(10)
+        manager.destroy_popup()
+        manager.next_turn()
 
 
 class PoliceDepartment(Field):
     def __init__(self):
         self.name: str = "Полицейский Участок"
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f"Вы посетили полицейский участок."
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="ОК",
+                           button_action=lambda: self.next_turn(manager))
 
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 class Casino(Field):
     def __init__(self):
         self.name: str = "Казино"
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f"Вы зашли в поиграть в Казино.\nВы можете поставить $1000 на одну из сторон кубика и выиграть $6000."
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="ОК",
+                           button_action=lambda: self.next_turn(manager))
 
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 class Start(Field):
     def __init__(self):
         self.name: str = "Старт"
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f'Вы попали на поле "Старт".'
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="ОК",
+                           button_action=lambda: self.next_turn(manager))
+
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 
 class Chance(Field):
     def __init__(self):
         self.name: str = "Шанс"
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f'Вы попали на поле "Шанс".'
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="ОК",
+                           button_action=lambda: self.next_turn(manager))
 
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 class Property(Field):
     def __init__(self, name: str, type: str, price: int, rent: int):
@@ -84,7 +139,7 @@ class Property(Field):
 
         self.owner: Player | None = None
 
-    def buy_field(self):
+    def buy_field(self, player: Player):
         pass
 
     def auction_field(self):
@@ -99,8 +154,15 @@ class GameBusiness(Property):
         super().__init__(name=name, price=price, rent=rent, type="Игры")
         self.multiplier = multiplier
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f'Вы попали на поле {self.name}.'
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="ОК",
+                           button_action=lambda: self.next_turn(manager))
+
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 
 class Company(Property):
@@ -110,11 +172,26 @@ class Company(Property):
         self.rent_sheet = rent_sheet
         self.current_rent = rent_sheet[0]
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f'Вы попали на поле {self.name}.'
+
+        manager.show_popup_2b(content_text=self.popup_text,
+                              button_text1="Купить",
+                              button_text2="Отменить",
+                              button_action1=lambda: self.buying_action(manager),
+                              button_action2=lambda: self.next_turn(manager))
 
     def build_branch(self):
         pass
+
+    def buying_action(self, manager):
+        self.buy_field(manager.current_player)
+        manager.destroy_popup()
+        manager.next_turn()
+
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 
 class CarBusiness(Property):
@@ -122,9 +199,15 @@ class CarBusiness(Property):
         super().__init__(name=name, price=price, rent=rent, type="Машины")
 
 
-    def on_stepping_in(self):
+    def on_stepping_in(self, manager):
         self.popup_text: str = f'Вы попали на поле {self.name}.'
+        manager.show_popup(content_text=self.popup_text,
+                           button_text="ОК",
+                           button_action=lambda: self.next_turn(manager))
 
+    def next_turn(self, manager):
+        manager.destroy_popup()
+        manager.next_turn()
 
 
 
