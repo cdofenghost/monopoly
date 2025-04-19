@@ -32,6 +32,10 @@ from .widgets import (
 
 from .classes.manager import GameManager
 
+import sys
+import logging
+logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -80,6 +84,6 @@ class MainWindow(QMainWindow):
 app = QApplication([])
 
 window = MainWindow()
-window.show()
+window.show()   
 
 app.exec()

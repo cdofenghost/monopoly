@@ -24,8 +24,13 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QTextEdit,
 )
+
 from .server import Host
 from .client import Client
+from .classes.player import Player
+from .classes.fields import Field as FieldInGame
+from .classes.fields import Property
+from .classes.map import Map
 
 class ViaLANChoice(QWidget):
     def __init__(self):
@@ -147,7 +152,6 @@ class GamemodeSettings(QWidget):
         self.setLayout(gamemode_box)
 
 class Game(QWidget):
-
     def __init__(self):
         super().__init__()
 
@@ -165,11 +169,13 @@ class Game(QWidget):
         self.middle.addItem(self.right_road)
 
         self.lower_road = QHBoxLayout()
+        self.main_map = Map()
+        self.main_map.load_map()
         
-        for i in range(11): self.upper_road.addWidget(Field("Поле"))
-        for i in range(9): self.right_road.addWidget(Field("Поле"))
-        for i in range(11): self.lower_road.addWidget(Field("Поле"))
-        for i in range(9): self.left_road.addWidget(Field("Поле"))
+        for field in self.main_map.map[:11]: self.upper_road.addWidget(Field(field))
+        for field in self.main_map.map[11:20]: self.right_road.addWidget(Field(field, form_direction='right'))
+        for field in self.main_map.map[30:19:-1]: self.lower_road.addWidget(Field(field, form_direction='down'))
+        for field in self.main_map.map[40:31:-1]: self.left_road.addWidget(Field(field, form_direction='left'))
 
         game_box = QFormLayout()
 
@@ -197,6 +203,8 @@ class Game(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setLayout(layout)
 
+    def load_game_session(self, players: list[Player]):
+        pass
     def next_turn(self):
         pass
 
@@ -230,18 +238,77 @@ class Chat(QWidget):
         self.chat_log.setText(self.chat_log.toPlainText() + f"\nИгрок: {message}")
         self.message_box.setText("")
 
-class Field(QPushButton):
+class Field(QWidget):
 
     # Attributes
     FIELD_MIN_SIZE = (60, 60)
     FIELD_MAX_SIZE = (100, 120)
 
-    def __init__(self, text):
-        super().__init__(text)
+    def __init__(self, field: FieldInGame, form_direction: str = 'up'):
+        # Widget settings
+        super().__init__()
+        self.field_layout = QFormLayout()
+        self.field_layout.setContentsMargins(0, 0, 0, 0)
+        self.field_layout.setSpacing(0)
+
+        self.rent_tag = QWidget()
+        self.button = QPushButton(field.name)
+        self.button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        if isinstance(field, Property):
+            rent_layout = QVBoxLayout()
+            rent_layout.setContentsMargins(0, 0, 0, 0)
+            rent_layout.setSpacing(0)
+
+            self.rent_label = QLabel(f"${str(field.rent)}")
+            self.rent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.rent_label.setStyleSheet('color: white;')
+
+            if form_direction in ['left', 'right']:
+                self.rent_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            else:
+                self.rent_tag.setMaximumHeight(12)
+
+            rent_layout.addWidget(self.rent_label)
+
+            self.rent_tag.setStyleSheet(f"background-color: {field.type_color}; font-weight: 500")
+            self.rent_tag.setLayout(rent_layout)
+
+            self.rent_tag.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        if form_direction == 'up':
+            self.field_layout.addRow(self.rent_tag)
+            self.field_layout.addRow(self.button)
+
+        if form_direction == 'down':
+            self.field_layout.addRow(self.button)
+            self.field_layout.addRow(self.rent_tag)
+
+        if form_direction == 'left':
+            box = QHBoxLayout()
+            box.setContentsMargins(0, 0, 0, 0)
+            box.setSpacing(0)
+
+            box.addWidget(self.rent_tag)
+            box.addWidget(self.button)
+
+            self.field_layout.addRow(box)
+
+        if form_direction == 'right':
+            box = QHBoxLayout()
+            box.setContentsMargins(0, 0, 0, 0)
+            box.setSpacing(0)
+
+            box.addWidget(self.button)
+            box.addWidget(self.rent_tag)
+
+            self.field_layout.addRow(box)
 
         self.setMinimumSize(*Field.FIELD_MIN_SIZE)  
         self.setMaximumSize(*Field.FIELD_MAX_SIZE)  
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        self.setLayout(self.field_layout)
 
 class PlayersBox(QWidget):
     def __init__(self, players_amount: int):
