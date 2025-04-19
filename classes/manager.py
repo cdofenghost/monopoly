@@ -9,6 +9,15 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 
+DICES = {
+    1: 'images/dice1.png',
+    2: 'images/dice2.png',
+    3: 'images/dice3.png',
+    4: 'images/dice4.png',
+    5: 'images/dice5.png',
+    6: 'images/dice6.png',
+}
+
 class GameManager():
     def __init__(self, game):
         self.game_session = game
@@ -20,8 +29,9 @@ class GameManager():
         self.next_turn()
 
     def next_turn(self):
+        self.destroy_popup()
         # Roll Dice
-        self.current_index += 1
+        self.current_index = (self.current_index + 1) % len(self.game_session.player_list)
         self.current_player = self.game_session.player_list[self.current_index]
 
         self.show_button_popup(content_text=f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span>, ваша очередь бросать кости!", 
@@ -35,7 +45,7 @@ class GameManager():
         dice1 = randint(1, 6)
         dice2 = randint(1, 6)
 
-        self.log_message(f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span> бросил кости - выпало {dice1} и {dice2} ({dice1 + dice2})!")
+        self.log_message(f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span> бросил кости - выпало <img src={DICES[dice1]} width=16 height=16> и <img src={DICES[dice2]} width=16 height=16> ({dice1 + dice2})!")
 
         self.destroy_popup()
 
@@ -44,16 +54,29 @@ class GameManager():
 
     def move_player(self, pos):
         self.current_player.position = (pos % 40)
-        field = self.game_session.fields[self.current_player.position]
         chip = self.game_session.chips[self.current_index]
+        
+
+        if self.current_player.position < 20:
+            field = self.game_session.fields[self.current_player.position]
+        elif self.current_player.position in range(20, 31):
+            field = self.game_session.fields[30 - (self.current_player.position - 20)]
+        else:
+            field = self.game_session.fields[39 - (self.current_player.position - 31)]
+
 
         chip.setParent(field)
         chip.move(0, 0)
         chip.show()
 
+        self.on_stepping_in()
+
     def on_stepping_in(self):
         field = self.game_session.main_map.map[self.current_player.position]
         field.on_stepping_in()
+        self.show_button_popup(content_text=field.popup_text,
+                               button_text="Ок",
+                               button_action=self.next_turn )
         pass
 
 

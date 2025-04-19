@@ -16,6 +16,7 @@ PROPERTY_TYPE_COLORS = {
 class Field():
     def __init__(self):
         self.name: str
+        self.popup_text: str
         pass
 
     @abstractmethod
@@ -31,16 +32,14 @@ class Taxes(Field):
 
     def on_stepping_in(self):
         from random import randint
-
-        print(f"DEBUG: You have to pay ${randint(200, 1500)} taxes.")
-
+        self.popup_text: str = f"Вы должны заплатить налог государству размером ${randint(200, 1500)}."
 
 class Jail(Field):
     def __init__(self):
         self.name: str = "Тюрьма"
 
     def on_stepping_in(self):
-        print(f"DEBUG: You have to go to Jail.")
+        self.popup_text: str = f"Вы отправляетесь в тюрьму за отмывание денег."
 
 
 class PoliceDepartment(Field):
@@ -48,7 +47,7 @@ class PoliceDepartment(Field):
         self.name: str = "Полицейский Участок"
 
     def on_stepping_in(self):
-        print(f"DEBUG: You visited the Police Department.")
+        self.popup_text: str = f"Вы посетили полицейский участок."
 
 
 class Casino(Field):
@@ -56,7 +55,7 @@ class Casino(Field):
         self.name: str = "Казино"
 
     def on_stepping_in(self):
-        print(f"DEBUG: You went to Casino to gamble!!")
+        self.popup_text: str = f"Вы зашли в поиграть в Казино.\nВы можете поставить $1000 на одну из сторон кубика и выиграть $6000."
 
 
 class Start(Field):
@@ -64,7 +63,7 @@ class Start(Field):
         self.name: str = "Старт"
 
     def on_stepping_in(self):
-        print(f"DEBUG: You went back to Start.")
+        self.popup_text: str = f'Вы попали на поле "Старт".'
 
 
 class Chance(Field):
@@ -72,7 +71,7 @@ class Chance(Field):
         self.name: str = "Шанс"
 
     def on_stepping_in(self):
-        print(f"DEBUG: You stepped on a field 'Chance'.")
+        self.popup_text: str = f'Вы попали на поле "Шанс".'
 
 
 class Property(Field):
@@ -101,7 +100,7 @@ class GameBusiness(Property):
         self.multiplier = multiplier
 
     def on_stepping_in(self):
-        print(f"DEBUG: Do you want to buy Game Business?")
+        self.popup_text: str = f'Вы попали на поле {self.name}.'
 
 
 class Company(Property):
@@ -112,7 +111,7 @@ class Company(Property):
         self.current_rent = rent_sheet[0]
 
     def on_stepping_in(self):
-        print(f"DEBUG: Do you want to buy Company?")
+        self.popup_text: str = f'Вы попали на поле {self.name}.'
 
     def build_branch(self):
         pass
@@ -124,7 +123,7 @@ class CarBusiness(Property):
 
 
     def on_stepping_in(self):
-        print(f"DEBUG: Do you want to buy Game Business?")
+        self.popup_text: str = f'Вы попали на поле {self.name}.'
 
 
 

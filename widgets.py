@@ -187,14 +187,14 @@ class Game(QWidget):
         for field in self.main_map.map[11:20]: 
             widget = Field(field, form_direction='right')
             self.right_road.addWidget(widget)
-            self.fields.append(field)
+            self.fields.append(widget)
 
         for field in self.main_map.map[30:19:-1]: 
             widget = Field(field, form_direction='down')
             self.lower_road.addWidget(widget)
-            self.fields.append(field)
+            self.fields.append(widget)
 
-        for field in self.main_map.map[40:31:-1]: 
+        for field in self.main_map.map[40:30:-1]: 
             widget = Field(field, form_direction='left')
             self.left_road.addWidget(widget)
             self.fields.append(widget)
