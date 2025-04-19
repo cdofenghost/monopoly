@@ -7,6 +7,7 @@ class Player():
         self.money = 15000
         self.owned_fields: list
         self.pledged_fields: list
+        self.position = 0
 
     def offer(self, player: Self):
         pass

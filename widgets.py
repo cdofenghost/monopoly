@@ -159,6 +159,7 @@ class GamemodeSettings(QWidget):
 class Game(QWidget):
     def __init__(self, player_list: list[Player]):
         super().__init__()
+        self.player_list = player_list
 
         # Actual Game Items
         self.upper_road = QHBoxLayout()
@@ -176,11 +177,30 @@ class Game(QWidget):
         self.lower_road = QHBoxLayout()
         self.main_map = Map()
         self.main_map.load_map()
+        self.fields: list[Field] = []
 
-        for field in self.main_map.map[:11]: self.upper_road.addWidget(Field(field))
-        for field in self.main_map.map[11:20]: self.right_road.addWidget(Field(field, form_direction='right'))
-        for field in self.main_map.map[30:19:-1]: self.lower_road.addWidget(Field(field, form_direction='down'))
-        for field in self.main_map.map[40:31:-1]: self.left_road.addWidget(Field(field, form_direction='left'))
+        for field in self.main_map.map[:11]: 
+            widget = Field(field)
+            self.upper_road.addWidget(widget)
+            self.fields.append(widget)
+
+        for field in self.main_map.map[11:20]: 
+            widget = Field(field, form_direction='right')
+            self.right_road.addWidget(widget)
+            self.fields.append(field)
+
+        for field in self.main_map.map[30:19:-1]: 
+            widget = Field(field, form_direction='down')
+            self.lower_road.addWidget(widget)
+            self.fields.append(field)
+
+        for field in self.main_map.map[40:31:-1]: 
+            widget = Field(field, form_direction='left')
+            self.left_road.addWidget(widget)
+            self.fields.append(widget)
+
+        self.chips = []
+        self.create_player_chips()
 
         game_box = QFormLayout()
 
@@ -213,6 +233,29 @@ class Game(QWidget):
         self.game_manager = GameManager(self)
         self.game_manager.start_game()
 
+    def create_player_chips(self):
+        start_field = self.fields[0]
+        field_height = start_field.height()
+        field_width = start_field.width()
+
+        player_amount = len(self.player_list)
+
+        print(start_field)
+        count = 0
+
+        for player in self.player_list:
+            chip = QWidget(start_field)
+            chip_width = int(field_width / (player_amount * 2))
+            chip_height = int(field_height / (player_amount * 2))
+            chip.setFixedSize(chip_width, chip_height)
+
+            chip.setStyleSheet(f'background-color: {player.color}; border: 2px solid black; border-radius: 4px;')
+            chip.move(count * chip_width, 0)
+
+            self.chips.append(chip)
+            count += 1
+
+
 class Chat(QWidget):
     def __init__(self):
         super().__init__()
@@ -242,8 +285,12 @@ class Chat(QWidget):
             self.chat_log.setText("")
             return
         
-        self.chat_log.setText(self.chat_log.toPlainText() + f"\nИгрок: {message}")
+        self.chat_log.setText(self.chat_log.toHtml() + f"\nИгрок: {message}")
         self.message_box.setText("")
+
+    def log_message(self, message: str):
+        self.chat_log.setText(self.chat_log.toHtml() + f"\n{message}")
+
 
 class Field(QWidget):
 
@@ -328,7 +375,7 @@ class PlayersBox(QWidget):
             container = QHBoxLayout()
             color_flag = QWidget()
             color_flag.setFixedSize(32, 32)
-            color_flag.setStyleSheet(f"background-color: {player.color}; border-radius: 4px;")
+            color_flag.setStyleSheet(f"background-color: {player.color}; border-radius: 4px; border: 2px solid white;")
 
             label = QLabel(f"{player.name}: ${player.money}")
             label.setStyleSheet('color: #F3F3F3;')

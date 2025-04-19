@@ -6,25 +6,56 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QVBoxLayout,
+    QSizePolicy,
 )
 
 class GameManager():
     def __init__(self, game):
         self.game_session = game
+        self.current_index: int = -1
+        self.current_player: Player
+        self.popup: OverlayWidget | None = None
 
     def start_game(self):
         self.next_turn()
-        popup = self.show_button_popup(content_text="Hello", button_text="Click", button_action=lambda: print("boop"))
-        popup.show()
 
     def next_turn(self):
-        pass
+        # Roll Dice
+        self.current_index += 1
+        self.current_player = self.game_session.player_list[self.current_index]
+
+        self.show_button_popup(content_text=f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span>, ваша очередь бросать кости!", 
+                               button_text="Бросить кости", 
+                               button_action=self.roll_dice)
+
+    def log_message(self, message: str):
+        self.game_session.chat.log_message(message)
 
     def roll_dice(self):
         dice1 = randint(1, 6)
         dice2 = randint(1, 6)
 
+        self.log_message(f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span> бросил кости - выпало {dice1} и {dice2} ({dice1 + dice2})!")
+
+        self.destroy_popup()
+
+        self.move_player(self.current_player.position + dice1 + dice2)
         return dice1 + dice2
+
+    def move_player(self, pos):
+        self.current_player.position = (pos % 40)
+        field = self.game_session.fields[self.current_player.position]
+        chip = self.game_session.chips[self.current_index]
+
+        chip.setParent(field)
+        chip.move(0, 0)
+        chip.show()
+
+    def on_stepping_in(self):
+        field = self.game_session.main_map.map[self.current_player.position]
+        field.on_stepping_in()
+        pass
+
 
     def end_game(self):
         pass
@@ -33,9 +64,16 @@ class GameManager():
         pass
 
     def show_button_popup(self, content_text: str, button_text: str, button_action):
-        popup = OverlayWidget(content_text="Оверлей", button_text="Ок", button_action=lambda: print("boop"), parent=self.game_session)
+        self.popup = OverlayWidget(content_text=content_text, 
+                              button_text=button_text, 
+                              button_action=button_action, 
+                              parent=self.game_session)
+        self.popup.show()
 
-        return popup
+    def destroy_popup(self):
+        if not self.popup is None:
+            self.popup.deleteLater()
+            self.game_session.update()
 
 class OverlayWidget(QWidget):
     def __init__(self, content_text: str, button_text: str, button_action, parent=None):
@@ -54,6 +92,8 @@ class OverlayWidget(QWidget):
         # Создаем контент оверлея
         self.label = QLabel(self.content_text, self)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.label.setWordWrap(True)
         self.label.setStyleSheet("""
             background-color: rgba(0, 0, 0, 180);
             color: white;
@@ -62,7 +102,7 @@ class OverlayWidget(QWidget):
             font-size: 16px;
         """)
         self.button = QPushButton(self.button_text)
-        self.button.setStyleSheet('background-color: #35B797; color: #F3F3F3;')
+        self.button.setStyleSheet('background-color: #35B797; color: #F3F3F3; font-weight: 500;')
         self.button.clicked.connect(self.button_action)
         
         self.setFixedSize(240, 240)
