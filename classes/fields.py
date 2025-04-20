@@ -46,12 +46,14 @@ class Taxes(Field):
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> оплатил налог размером ${self.tax_price}")
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
     def file_for_bankruptcy(self, manager):
         manager.file_bankruptcy(manager.current_player)
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 class Jail(Field):
     def __init__(self):
@@ -70,6 +72,7 @@ class Jail(Field):
         manager.move_player(10)
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 
 class PoliceDepartment(Field):
@@ -85,6 +88,7 @@ class PoliceDepartment(Field):
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 class Casino(Field):
     def __init__(self):
@@ -99,6 +103,7 @@ class Casino(Field):
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 class Start(Field):
     def __init__(self):
@@ -113,6 +118,7 @@ class Start(Field):
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 
 class Chance(Field):
@@ -128,6 +134,7 @@ class Chance(Field):
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 class Property(Field):
     def __init__(self, name: str, type: str, price: int, rent: int):
@@ -140,7 +147,10 @@ class Property(Field):
         self.owner: Player | None = None
 
     def buy_field(self, player: Player):
-        pass
+        player.money -= self.price
+        self.owner = player
+        player.owned_fields.append(self)
+
 
     def auction_field(self):
         pass
@@ -163,7 +173,7 @@ class GameBusiness(Property):
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
-
+        manager.game_session.players_stats.update_box()
 
 class Company(Property):
     def __init__(self, name: str, type: str, price: int, rent: int, rent_sheet: dict[int, int]):
@@ -173,25 +183,61 @@ class Company(Property):
         self.current_rent = rent_sheet[0]
 
     def on_stepping_in(self, manager):
-        self.popup_text: str = f'Вы попали на поле {self.name}.'
-
-        manager.show_popup_2b(content_text=self.popup_text,
-                              button_text1="Купить",
-                              button_text2="Отменить",
-                              button_action1=lambda: self.buying_action(manager),
-                              button_action2=lambda: self.next_turn(manager))
+        if self.owner is None:
+            self.popup_text: str = f'Вы попали на поле {self.name}.'
+            manager.show_popup_2b(content_text=self.popup_text,
+                                button_text1="Купить",
+                                button_text2="Отменить",
+                                button_action1=lambda: self.buying_action(manager),
+                                button_action2=lambda: self.next_turn(manager))
+        else:
+            if not self.owner is manager.current_player:
+                self.popup_text: str = f'Вы попали на поле {self.name}, которым владеет <span style="color: {self.owner.color}">{self.owner.name}</span>.\nВы обязаны заплатить владельцу ${self.rent}.'
+                manager.show_popup_2b(content_text=self.popup_text,
+                                    button_text1="Заплатить",
+                                    button_text2="Обанкротиться",
+                                    button_action1=lambda: self.pay_rent(manager),
+                                    button_action2=lambda: self.file_for_bankruptcy(manager))
 
     def build_branch(self):
         pass
 
-    def buying_action(self, manager):
-        self.buy_field(manager.current_player)
+    def pay_rent(self, manager):
+        manager.current_player.money -= self.rent
+        self.owner.money += self.rent
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+    def file_for_bankruptcy(self, manager):
+        manager.file_bankruptcy(manager.current_player)
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
+        manager.destroy_popup()
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+    def buying_action(self, manager):
+        self.buy_field(manager.current_player)
+
+        index = manager.current_player.position
+
+        if index in range(20, 31):
+            index = 30 - (index - 20)
+        elif index in range(31, 40):
+            index = 39 - (index - 31)
+
+        field = manager.game_session.fields[index]
+        field.button.setStyleSheet(f"background-color: {manager.current_player.color}")
+        manager.destroy_popup()
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> купил компанию {self.name} за {self.price}.")
+        
 
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 
 class CarBusiness(Property):
@@ -208,6 +254,7 @@ class CarBusiness(Property):
     def next_turn(self, manager):
         manager.destroy_popup()
         manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
 
 

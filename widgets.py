@@ -369,7 +369,8 @@ class Field(QWidget):
 class PlayersBox(QWidget):
     def __init__(self, player_list: list[Player]):
         super().__init__()
-        
+        self.player_list = player_list
+
         layout = QFormLayout()
         for player in player_list:
             container = QHBoxLayout()
@@ -384,6 +385,12 @@ class PlayersBox(QWidget):
             layout.addRow(container)
 
         self.setLayout(layout)
+
+    def update_box(self):
+        for i in range(self.layout().count()):
+            line = self.layout().itemAt(i).layout()
+            player = line.itemAt(1).widget()
+            player.setText(f"{self.player_list[i].name}: ${self.player_list[i].money}")
 
 class ColorButton(QPushButton):
     '''

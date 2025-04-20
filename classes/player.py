@@ -5,8 +5,8 @@ class Player():
         self.name = name
         self.color = color
         self.money = 15000
-        self.owned_fields: list
-        self.pledged_fields: list
+        self.owned_fields: list = []
+        self.pledged_fields: list = []
         self.position = 0
         self.in_jail: bool = False
 
