@@ -109,7 +109,7 @@ class Menu(QWidget):
         super().__init__()
 
         self.label = QLabel("Монополия")
-        self.label.setStyleSheet("QLabel {color: #000000; text-align: center; font: bold 18px;}")
+        self.label.setStyleSheet("QLabel {text-align: center; font: bold 18px;}")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.games_button = QPushButton("Начать игру")
@@ -239,8 +239,6 @@ class Game(QWidget):
         field_width = start_field.width()
 
         player_amount = len(self.player_list)
-
-        print(start_field)
         count = 0
 
         for player in self.player_list:
@@ -316,7 +314,7 @@ class Field(QWidget):
             rent_layout.setContentsMargins(0, 0, 0, 0)
             rent_layout.setSpacing(0)
 
-            self.rent_label = QLabel(f"${str(field.rent)}")
+            self.rent_label = QLabel(f"${str(field.price)}")
             self.rent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.rent_label.setStyleSheet('color: white;')
 

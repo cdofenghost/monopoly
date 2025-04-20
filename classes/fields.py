@@ -180,7 +180,7 @@ class Company(Property):
         super().__init__(name, type, price, rent)
 
         self.rent_sheet = rent_sheet
-        self.current_rent = rent_sheet[0]
+        self.current_rent = rent_sheet[1]
 
     def on_stepping_in(self, manager):
         if self.owner is None:
@@ -218,7 +218,8 @@ class Company(Property):
 
     def buying_action(self, manager):
         self.buy_field(manager.current_player)
-
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> купил компанию {self.name} за ${self.price}.")
+        
         index = manager.current_player.position
 
         if index in range(20, 31):
@@ -228,10 +229,10 @@ class Company(Property):
 
         field = manager.game_session.fields[index]
         field.button.setStyleSheet(f"background-color: {manager.current_player.color}")
+        field.rent_label.setText(f"${self.rent}")
         manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
-        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> купил компанию {self.name} за {self.price}.")
         
 
     def next_turn(self, manager):

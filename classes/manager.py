@@ -31,6 +31,7 @@ class GameManager():
 
     def next_turn(self):
         self.destroy_popup()
+        print(self.game_session.size())
         # Roll Dice
         self.current_index = (self.current_index + 1) % len(self.game_session.player_list)
         self.current_player = self.game_session.player_list[self.current_index]
@@ -72,7 +73,7 @@ class GameManager():
         chip.move(0, 0)
         chip.show()
 
-        field_in_game = self.game_session.main_map.map[field_index]
+        field_in_game = self.game_session.main_map.map[self.current_player.position]
         field_in_game.on_stepping_in(self)
 
     def end_game(self):

@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.gamemodes_container)
         self.stacked_widget.addWidget(self.via_lan_container)
         self.stacked_widget.addWidget(self.friends_setup_container)
-        self.stacked_widget.setStyleSheet('background-color: #272A2E')
+        self.stacked_widget.setStyleSheet('background-color: #272A2E; color: white; font-weight: 500;')
 
         # Labels
         
@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
             self.update()
 
         self.game_container = Game(player_list=self.players_list)
+        self.game_container.setStyleSheet("color: black;")
         self.game_container.quit_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
         self.stacked_widget.addWidget(self.game_container)
         self.stacked_widget.setCurrentIndex(4)
