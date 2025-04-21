@@ -88,7 +88,10 @@ class MainWindow(QMainWindow):
             self.players_list.append(Player(name=player_name, color=player_color))
 
         if not self.game_container is None:
-            self.game_container.deleteLater()
+            try:
+                self.game_container.deleteLater()
+            except:
+                print('1')
             self.update()
 
         self.game_container = Game(player_list=self.players_list)

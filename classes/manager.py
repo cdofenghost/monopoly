@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QSizePolicy,
+    QApplication
 )
 
 DICES = {
@@ -31,9 +32,13 @@ class GameManager():
 
     def next_turn(self):
         self.destroy_popup()
-        print(self.game_session.size())
-        # Roll Dice
         self.current_index = (self.current_index + 1) % len(self.game_session.player_list)
+
+        if len(self.game_session.player_list) == 1:
+            self.end_game()
+            return
+
+        # Roll Dice
         self.current_player = self.game_session.player_list[self.current_index]
 
         self.show_popup(content_text=f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span>, ваша очередь бросать кости!", 
@@ -54,7 +59,7 @@ class GameManager():
         self.move_player(self.current_player.position + dice1 + dice2)
         return dice1 + dice2
 
-    def move_player(self, pos):
+    def move_player(self, pos, on_step=True):
         self.current_player.position = (pos % 40)
         chip = self.game_session.chips[self.current_index]
         
@@ -73,14 +78,18 @@ class GameManager():
         chip.move(0, 0)
         chip.show()
 
-        field_in_game = self.game_session.main_map.map[self.current_player.position]
-        field_in_game.on_stepping_in(self)
+        if on_step:
+            field_in_game = self.game_session.main_map.map[self.current_player.position]
+            field_in_game.on_stepping_in(self)
 
     def end_game(self):
-        pass
+        self.show_popup(content_text=f"Победитель - <span style='color: {self.current_player.color}'>{self.current_player}</span>",
+                        button_text="Ура",
+                        button_action=self.game_session.deleteLater)
 
     def file_bankruptcy(self, player):
         self.game_session.player_list.remove(player)
+        self.game_session.players_stats.remove_player(self.current_index)
         pass
 
     def show_popup(self, content_text: str, button_text: str, button_action):
@@ -90,18 +99,23 @@ class GameManager():
                               parent=self.game_session)
         self.popup.show()
 
-    def show_popup_2b(self, content_text: str, button_text1: str, button_text2: str, button_action1, button_action2):
+    def show_popup_2b(self, content_text: str, button_text1: str, button_text2: str, button_action1, button_action2, button1_enabled=True, button2_enabled=True):
         self.popup = OverlayWidget2B(content_text=content_text, 
                                     button_text1=button_text1,
                                     button_text2=button_text2, 
                                     button_action1=button_action1,
                                     button_action2=button_action2,
+                                    button1_enabled=button1_enabled,
+                                    button2_enabled=button2_enabled,
                                     parent=self.game_session)
         self.popup.show()
 
     def destroy_popup(self):
         if not self.popup is None:
+            self.popup.hide()
+            self.popup.setParent(None)
             self.popup.deleteLater()
+            QApplication.processEvents()
             self.game_session.update()
 
 class OverlayWidget(QWidget):
@@ -150,7 +164,7 @@ class OverlayWidget(QWidget):
             self.move(self.parent().rect().center())
 
 class OverlayWidget2B(QWidget):
-    def __init__(self, content_text: str, button_text1: str, button_text2: str, button_action1, button_action2, parent=None):
+    def __init__(self, content_text: str, button_text1: str, button_text2: str, button_action1, button_action2, button1_enabled, button2_enabled, parent=None):
         super().__init__(parent)
 
         self.button_text1 = button_text1
@@ -158,9 +172,15 @@ class OverlayWidget2B(QWidget):
         self.button_text2 = button_text2
         self.button_action2 = button_action2
         self.content_text = content_text
+        self.button1_enabled = button1_enabled
+        self.button2_enabled = button2_enabled
         self.setup_ui()
         
     def setup_ui(self):
+        BUTTON_COLORS = {
+            True: "#35B797",
+            False: "#258772",
+        }
         # Убираем рамку и делаем фон полупрозрачным
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -179,13 +199,16 @@ class OverlayWidget2B(QWidget):
         """)
         button_layout = QHBoxLayout()
 
+
         self.button1 = QPushButton(self.button_text1)
-        self.button1.setStyleSheet('background-color: #35B797; color: #F3F3F3; font-weight: 500;')
+        self.button1.setStyleSheet(f'background-color: {BUTTON_COLORS[self.button1_enabled]}; color: #F3F3F3; font-weight: 500;')
         self.button1.clicked.connect(self.button_action1)
+        self.button1.setEnabled(self.button1_enabled)
 
         self.button2 = QPushButton(self.button_text2)
-        self.button2.setStyleSheet('background-color: #35B797; color: #F3F3F3; font-weight: 500;')
+        self.button2.setStyleSheet(f'background-color: {BUTTON_COLORS[self.button2_enabled]}; color: #F3F3F3; font-weight: 500;')
         self.button2.clicked.connect(self.button_action2)
+        self.button2.setEnabled(self.button2_enabled)
         
         button_layout.addWidget(self.button1)
         button_layout.addWidget(self.button2)

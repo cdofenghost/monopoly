@@ -384,6 +384,10 @@ class PlayersBox(QWidget):
 
         self.setLayout(layout)
 
+    def remove_player(self, player_index: int):
+        line = self.layout().itemAt(player_index).layout()
+        self.layout().removeItem(line)
+
     def update_box(self):
         for i in range(self.layout().count()):
             line = self.layout().itemAt(i).layout()

@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from .player import Player
 
+from random import randint
+
 PROPERTY_TYPE_COLORS = {
     'Парфюмерия': '#F678CA',
     'Машины': '#D02A4C',
@@ -13,6 +15,7 @@ PROPERTY_TYPE_COLORS = {
     'Отели': '#9171E2',
     'Смартфоны': '#646D73',
 }
+
 class Field():
     def __init__(self):
         self.name: str
@@ -44,14 +47,12 @@ class Taxes(Field):
     def pay_taxes(self, manager):
         manager.current_player.money -= self.tax_price
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> оплатил налог размером ${self.tax_price}")
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
     def file_for_bankruptcy(self, manager):
         manager.file_bankruptcy(manager.current_player)
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -67,10 +68,10 @@ class Jail(Field):
                            button_action=lambda: self.move_player(manager))
 
     def move_player(self, manager):
-        manager.log_message("<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> отправляется в тюрьму за отмывание денег.")
+        
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> отправляется в тюрьму за отмывание денег.")
         manager.current_player.in_jail = True
-        manager.move_player(10)
-        manager.destroy_popup()
+        manager.move_player(10, on_step=False)
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -80,13 +81,14 @@ class PoliceDepartment(Field):
         self.name: str = "Полицейский Участок"
 
     def on_stepping_in(self, manager):
-        self.popup_text: str = f"Вы посетили полицейский участок."
-        manager.show_popup(content_text=self.popup_text,
-                           button_text="ОК",
-                           button_action=lambda: self.next_turn(manager))
+        if manager.current_player.in_jail is False:
+            self.popup_text: str = f"Вы посетили полицейский участок."
+            manager.show_popup(content_text=self.popup_text,
+                            button_text="ОК",
+                            button_action=lambda: self.next_turn(manager))
 
     def next_turn(self, manager):
-        manager.destroy_popup()
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> посещает полицейский участок с экскурсией.")
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -101,7 +103,6 @@ class Casino(Field):
                            button_action=lambda: self.next_turn(manager))
 
     def next_turn(self, manager):
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -116,7 +117,7 @@ class Start(Field):
                            button_action=lambda: self.next_turn(manager))
 
     def next_turn(self, manager):
-        manager.destroy_popup()
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> зашел на поле 'Старт' и получил дополнительные $1000.")
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -124,17 +125,45 @@ class Start(Field):
 class Chance(Field):
     def __init__(self):
         self.name: str = "Шанс"
+        self.chance_texts = {
+            1: "отправляется в путешествие",
+            2: "потратил $500 на распродаже",
+            3: "нашел на улице $500",
+            4: "забыл выключить утюг дома. В следующем ходу он будет перемещаться в обратном направлении",
+        }
+        self.chance_actions = {
+            1: self.chance1,
+            2: self.chance2,
+            3: self.chance3,
+            4: self.chance4,
+        }
 
     def on_stepping_in(self, manager):
         self.popup_text: str = f'Вы попали на поле "Шанс".'
         manager.show_popup(content_text=self.popup_text,
                            button_text="ОК",
-                           button_action=lambda: self.next_turn(manager))
+                           button_action=lambda: self.game_action(manager))
 
-    def next_turn(self, manager):
-        manager.destroy_popup()
+    def game_action(self, manager):
+        chance_number = randint(1, 4)
+
+        self.chance_actions[chance_number](manager)
+
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> {self.chance_texts[chance_number]}")
         manager.next_turn()
         manager.game_session.players_stats.update_box()
+
+    def chance1(self, manager):
+        manager.move_player(manager.current_player.position + randint(-12, 12), on_step=False)
+
+    def chance2(self, manager):
+        manager.current_player.money -= 500
+
+    def chance3(self, manager):
+        manager.current_player.money += 500
+
+    def chance4(self, manager):
+        pass
 
 class Property(Field):
     def __init__(self, name: str, type: str, price: int, rent: int):
@@ -171,7 +200,6 @@ class GameBusiness(Property):
                            button_action=lambda: self.next_turn(manager))
 
     def next_turn(self, manager):
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -183,11 +211,13 @@ class Company(Property):
         self.current_rent = rent_sheet[1]
 
     def on_stepping_in(self, manager):
+        buy_button_enabled = manager.current_player.money >= self.price
         if self.owner is None:
             self.popup_text: str = f'Вы попали на поле {self.name}.'
             manager.show_popup_2b(content_text=self.popup_text,
                                 button_text1="Купить",
                                 button_text2="Отменить",
+                                button1_enabled=buy_button_enabled,
                                 button_action1=lambda: self.buying_action(manager),
                                 button_action2=lambda: self.next_turn(manager))
         else:
@@ -196,8 +226,12 @@ class Company(Property):
                 manager.show_popup_2b(content_text=self.popup_text,
                                     button_text1="Заплатить",
                                     button_text2="Обанкротиться",
+                                    button1_enabled=buy_button_enabled,
                                     button_action1=lambda: self.pay_rent(manager),
                                     button_action2=lambda: self.file_for_bankruptcy(manager))
+            else:
+                manager.log_message(f'<span style="color: {self.owner.color}">{self.owner.name}</span> попадает на свое поле')
+                manager.next_turn()
 
     def build_branch(self):
         pass
@@ -205,21 +239,19 @@ class Company(Property):
     def pay_rent(self, manager):
         manager.current_player.money -= self.rent
         self.owner.money += self.rent
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
     def file_for_bankruptcy(self, manager):
         manager.file_bankruptcy(manager.current_player)
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
     def buying_action(self, manager):
         self.buy_field(manager.current_player)
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> купил компанию {self.name} за ${self.price}.")
-        
+
         index = manager.current_player.position
 
         if index in range(20, 31):
@@ -230,13 +262,11 @@ class Company(Property):
         field = manager.game_session.fields[index]
         field.button.setStyleSheet(f"background-color: {manager.current_player.color}")
         field.rent_label.setText(f"${self.rent}")
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
         
 
     def next_turn(self, manager):
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -253,7 +283,6 @@ class CarBusiness(Property):
                            button_action=lambda: self.next_turn(manager))
 
     def next_turn(self, manager):
-        manager.destroy_popup()
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
