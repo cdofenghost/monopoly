@@ -60,7 +60,15 @@ class GameManager():
         return dice1 + dice2
 
     def move_player(self, pos, on_step=True):
-        self.current_player.position = (pos % 40)
+        previous_position = self.current_player.position
+        new_pos = pos % 40
+
+        # On start of a new game cycle
+        if previous_position > new_pos:
+            self.current_player.money += 2000
+            self.log_message(f"<span style='color: {self.current_player.color}'>{self.current_player.name}</span> начинает новый круг и получает $2000.")
+
+        self.current_player.position = new_pos
         chip = self.game_session.chips[self.current_index]
         
         field_index = self.current_player.position
@@ -93,11 +101,11 @@ class GameManager():
         pass
 
     def show_popup(self, content_text: str, button_text: str, button_action):
-        self.popup = OverlayWidget(content_text=content_text, 
-                              button_text=button_text, 
-                              button_action=button_action, 
-                              parent=self.game_session)
-        self.popup.show()
+            self.popup = OverlayWidget(content_text=content_text, 
+                                button_text=button_text, 
+                                button_action=button_action, 
+                                parent=self.game_session)
+            self.popup.show()
 
     def show_popup_2b(self, content_text: str, button_text1: str, button_text2: str, button_action1, button_action2, button1_enabled=True, button2_enabled=True):
         self.popup = OverlayWidget2B(content_text=content_text, 

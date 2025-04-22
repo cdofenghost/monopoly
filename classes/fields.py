@@ -114,10 +114,11 @@ class Start(Field):
         self.popup_text: str = f'Вы попали на поле "Старт".'
         manager.show_popup(content_text=self.popup_text,
                            button_text="ОК",
-                           button_action=lambda: self.next_turn(manager))
+                           button_action=lambda: self.add_1000_bucks(manager))
 
-    def next_turn(self, manager):
+    def add_1000_bucks(self, manager):
         manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> зашел на поле 'Старт' и получил дополнительные $1000.")
+        manager.current_player.money += 1000
         manager.next_turn()
         manager.game_session.players_stats.update_box()
 
@@ -170,8 +171,14 @@ class Property(Field):
         self.name = name
         self.type = type
         self.type_color = PROPERTY_TYPE_COLORS[type]
+
         self.price = price
         self.rent = rent
+
+        # Pledge attributes
+        self.pledge_price = price // 2
+        self.from_pledge_price = self.pledge_price * 1.2
+        self.pledged = False
 
         self.owner: Player | None = None
 
@@ -185,7 +192,8 @@ class Property(Field):
         pass
 
     def pledge_field(self):
-        pass
+        self.pledged = True
+        self.owner.money += self.pledge_price
 
 
 class GameBusiness(Property):
@@ -194,25 +202,8 @@ class GameBusiness(Property):
         self.multiplier = multiplier
 
     def on_stepping_in(self, manager):
-        self.popup_text: str = f'Вы попали на поле {self.name}.'
-        manager.show_popup(content_text=self.popup_text,
-                           button_text="ОК",
-                           button_action=lambda: self.next_turn(manager))
-
-    def next_turn(self, manager):
-        manager.next_turn()
-        manager.game_session.players_stats.update_box()
-
-class Company(Property):
-    def __init__(self, name: str, type: str, price: int, rent: int, rent_sheet: dict[int, int]):
-        super().__init__(name, type, price, rent)
-
-        self.rent_sheet = rent_sheet
-        self.current_rent = rent_sheet[1]
-
-    def on_stepping_in(self, manager):
-        buy_button_enabled = manager.current_player.money >= self.price
         if self.owner is None:
+            buy_button_enabled = manager.current_player.money >= self.price
             self.popup_text: str = f'Вы попали на поле {self.name}.'
             manager.show_popup_2b(content_text=self.popup_text,
                                 button_text1="Купить",
@@ -222,6 +213,7 @@ class Company(Property):
                                 button_action2=lambda: self.next_turn(manager))
         else:
             if not self.owner is manager.current_player:
+                buy_button_enabled = manager.current_player.money >= self.rent
                 self.popup_text: str = f'Вы попали на поле {self.name}, которым владеет <span style="color: {self.owner.color}">{self.owner.name}</span>.\nВы обязаны заплатить владельцу ${self.rent}.'
                 manager.show_popup_2b(content_text=self.popup_text,
                                     button_text1="Заплатить",
@@ -232,9 +224,6 @@ class Company(Property):
             else:
                 manager.log_message(f'<span style="color: {self.owner.color}">{self.owner.name}</span> попадает на свое поле')
                 manager.next_turn()
-
-    def build_branch(self):
-        pass
 
     def pay_rent(self, manager):
         manager.current_player.money -= self.rent
@@ -264,6 +253,73 @@ class Company(Property):
         field.rent_label.setText(f"${self.rent}")
         manager.next_turn()
         manager.game_session.players_stats.update_box()
+
+    def next_turn(self, manager):
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+class Company(Property):
+    def __init__(self, name: str, type: str, price: int, rent: int, rent_sheet: dict[int, int]):
+        super().__init__(name, type, price, rent)
+
+        self.rent_sheet = rent_sheet
+        self.current_rent = rent_sheet[1]
+
+    def on_stepping_in(self, manager):
+        if self.owner is None:
+            buy_button_enabled = manager.current_player.money >= self.price
+            self.popup_text: str = f'Вы попали на поле {self.name}.'
+            manager.show_popup_2b(content_text=self.popup_text,
+                                button_text1="Купить",
+                                button_text2="Отменить",
+                                button1_enabled=buy_button_enabled,
+                                button_action1=lambda: self.buying_action(manager),
+                                button_action2=lambda: self.next_turn(manager))
+        else:
+            if not self.owner is manager.current_player:
+                buy_button_enabled = manager.current_player.money >= self.rent
+                self.popup_text: str = f'Вы попали на поле <span style="color: {self.type_color}">{self.name}</span>, которым владеет <span style="color: {self.owner.color}">{self.owner.name}</span>.\nВы обязаны заплатить владельцу ${self.rent}.'
+                manager.show_popup_2b(content_text=self.popup_text,
+                                    button_text1="Заплатить",
+                                    button_text2="Обанкротиться",
+                                    button1_enabled=buy_button_enabled,
+                                    button_action1=lambda: self.pay_rent(manager),
+                                    button_action2=lambda: self.file_for_bankruptcy(manager))
+            else:
+                manager.log_message(f'<span style="color: {self.owner.color}">{self.owner.name}</span> попадает на свое поле')
+                manager.next_turn()
+
+    def build_branch(self):
+        pass
+
+    def pay_rent(self, manager):
+        manager.current_player.money -= self.rent
+        self.owner.money += self.rent
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+    def file_for_bankruptcy(self, manager):
+        manager.file_bankruptcy(manager.current_player)
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+    def buying_action(self, manager):
+        self.buy_field(manager.current_player)
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> купил компанию <span style='color: {self.type_color}'>{self.name}</span> за ${self.price}.")
+
+        index = manager.current_player.position
+
+        if index in range(20, 31):
+            index = 30 - (index - 20)
+        elif index in range(31, 40):
+            index = 39 - (index - 31)
+
+        field = manager.game_session.fields[index]
+        field.button.setStyleSheet(f"background-color: {manager.current_player.color}")
+        field.rent_label.setText(f"${self.rent}")
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
         
 
     def next_turn(self, manager):
@@ -277,10 +333,57 @@ class CarBusiness(Property):
 
 
     def on_stepping_in(self, manager):
-        self.popup_text: str = f'Вы попали на поле {self.name}.'
-        manager.show_popup(content_text=self.popup_text,
-                           button_text="ОК",
-                           button_action=lambda: self.next_turn(manager))
+        if self.owner is None:
+            buy_button_enabled = manager.current_player.money >= self.price
+            self.popup_text: str = f'Вы попали на поле {self.name}.'
+            manager.show_popup_2b(content_text=self.popup_text,
+                                button_text1="Купить",
+                                button_text2="Отменить",
+                                button1_enabled=buy_button_enabled,
+                                button_action1=lambda: self.buying_action(manager),
+                                button_action2=lambda: self.next_turn(manager))
+        else:
+            if not self.owner is manager.current_player:
+                buy_button_enabled = manager.current_player.money >= self.rent
+                self.popup_text: str = f'Вы попали на поле <span style="color: {self.type_color}">{self.name}</span>, которым владеет <span style="color: {self.owner.color}">{self.owner.name}</span>.\nВы обязаны заплатить владельцу ${self.rent}.'
+                manager.show_popup_2b(content_text=self.popup_text,
+                                    button_text1="Заплатить",
+                                    button_text2="Обанкротиться",
+                                    button1_enabled=buy_button_enabled,
+                                    button_action1=lambda: self.pay_rent(manager),
+                                    button_action2=lambda: self.file_for_bankruptcy(manager))
+            else:
+                manager.log_message(f'<span style="color: {self.owner.color}">{self.owner.name}</span> попадает на свое поле')
+                manager.next_turn()
+                
+    def pay_rent(self, manager):
+        manager.current_player.money -= self.rent
+        self.owner.money += self.rent
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+    def file_for_bankruptcy(self, manager):
+        manager.file_bankruptcy(manager.current_player)
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> стал банкротом.")
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
+
+    def buying_action(self, manager):
+        self.buy_field(manager.current_player)
+        manager.log_message(f"<span style='color: {manager.current_player.color}'>{manager.current_player.name}</span> купил компанию <span style='color: {self.type_color}'>{self.name}</span> за ${self.price}.")
+
+        index = manager.current_player.position
+
+        if index in range(20, 31):
+            index = 30 - (index - 20)
+        elif index in range(31, 40):
+            index = 39 - (index - 31)
+
+        field = manager.game_session.fields[index]
+        field.button.setStyleSheet(f"background-color: {manager.current_player.color}")
+        field.rent_label.setText(f"${self.rent}")
+        manager.next_turn()
+        manager.game_session.players_stats.update_box()
 
     def next_turn(self, manager):
         manager.next_turn()

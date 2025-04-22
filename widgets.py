@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 from .server import Host
 from .client import Client
 from .classes.player import Player
-from .classes.fields import Field as FieldInGame
+from .classes.fields import Field as FieldInGame, Company
 from .classes.fields import Property
 from .classes.map import Map
 from .classes.manager import GameManager
@@ -130,7 +130,7 @@ class GamemodeSettings(QWidget):
 
         # Labels
         self.gamemode_label = QLabel("Выбор игрового режима")
-        self.gamemode_label.setStyleSheet("QLabel {color: #000000; text-align: center; font: bold 18px;}")
+        self.gamemode_label.setStyleSheet("QLabel {text-align: center; font: bold 18px;}")
         self.gamemode_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Buttons
@@ -180,22 +180,22 @@ class Game(QWidget):
         self.fields: list[Field] = []
 
         for field in self.main_map.map[:11]: 
-            widget = Field(field)
+            widget = Field(field, self)
             self.upper_road.addWidget(widget)
             self.fields.append(widget)
 
         for field in self.main_map.map[11:20]: 
-            widget = Field(field, form_direction='right')
+            widget = Field(field, self, form_direction='right')
             self.right_road.addWidget(widget)
             self.fields.append(widget)
 
         for field in self.main_map.map[30:19:-1]: 
-            widget = Field(field, form_direction='down')
+            widget = Field(field, self, form_direction='down')
             self.lower_road.addWidget(widget)
             self.fields.append(widget)
 
         for field in self.main_map.map[40:30:-1]: 
-            widget = Field(field, form_direction='left')
+            widget = Field(field, self, form_direction='left')
             self.left_road.addWidget(widget)
             self.fields.append(widget)
 
@@ -296,7 +296,7 @@ class Field(QWidget):
     FIELD_MIN_SIZE = (60, 60)
     FIELD_MAX_SIZE = (100, 120)
 
-    def __init__(self, field: FieldInGame, form_direction: str = 'up'):
+    def __init__(self, field: FieldInGame, game: Game, form_direction: str = 'up'):
         # Widget settings
         super().__init__()
         self.setStyleSheet('background-color: #F3F3F3')
@@ -304,10 +304,12 @@ class Field(QWidget):
         self.field_layout = QFormLayout()
         self.field_layout.setContentsMargins(0, 0, 0, 0)
         self.field_layout.setSpacing(0)
+        self.game = game
 
         self.rent_tag = QWidget()
         self.button = QPushButton(field.name)
         self.button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.button.clicked.connect(lambda: self.show_field_info_popup(field, game.game_manager.current_player))
 
         if isinstance(field, Property):
             rent_layout = QVBoxLayout()
@@ -327,7 +329,6 @@ class Field(QWidget):
 
             self.rent_tag.setStyleSheet(f"background-color: {field.type_color}; font-weight: 500")
             self.rent_tag.setLayout(rent_layout)
-
             self.rent_tag.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         if form_direction == 'up':
@@ -363,6 +364,50 @@ class Field(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.setLayout(self.field_layout)
+
+    def show_field_info_popup(self, field: FieldInGame, player: Player):
+        if isinstance(field, Property):
+            if isinstance(field, Company):
+                content_text = f"Поле: {field.name}<br>Тип: <span style='color: {field.type_color}'>{field.type}</span><br>Цена покупки: {field.price}<br>Базовая рента: {field.rent}<br>Рента филиалов: {field.rent_sheet}<br>Цена залога: ${field.pledge_price}<br>Цена выкупа: ${field.from_pledge_price}"
+
+                if field in player.owned_fields:
+                    if not field.pledged:
+                        self.popup = OverlayWidget2B(content_text=content_text,
+                                                    button_action1=self.hide_popup,
+                                                    button_text1='Закрыть',
+                                                    button_action2=lambda: self.pledge_field(field, player),
+                                                    button_text2="Заложить",
+                                                    parent=self.game)
+                        self.popup.show()
+                    else:
+                        self.popup = OverlayWidget2B(content_text=content_text,
+                            button_action1=self.hide_popup,
+                            button_text1='Закрыть',
+                            button_action2=lambda: self.pledge_field(field, player),
+                            button_text2="Выкупить",
+                            button2_enabled=player.money >= field.from_pledge_price,
+                            parent=self.game)
+                        self.popup.show()
+                else:
+                    self.popup = OverlayWidget(content_text=content_text, 
+                                        button_text="Закрыть", 
+                                        button_action=self.hide_popup, 
+                                        parent=self.game)
+                    self.popup.show()
+
+    def hide_popup(self):
+        if not self.popup is None:
+            self.popup.hide()
+            self.popup.setParent(None)
+            self.popup.deleteLater()
+            QApplication.processEvents() 
+
+    def pledge_field(self, field: Property, player: Player):
+        field.pledge_field()
+        self.button.setStyleSheet(f'background-color: #AAAAAA')
+        self.game.chat.log_message(f"<span style='{player.color}'>{player.name}</span> заложил поле <span style='color: {field.type_color}'>{field.name}</span>")
+        self.game.players_stats.update_box()
+        self.hide_popup()
 
 class PlayersBox(QWidget):
     def __init__(self, player_list: list[Player]):
@@ -446,3 +491,113 @@ class ColorButton(QPushButton):
             self.setColor(self._default)
 
         return super().mousePressEvent(e)
+    
+class OverlayWidget(QWidget):
+    def __init__(self, content_text: str, button_text: str, button_action, parent=None):
+        super().__init__(parent)
+
+        self.button_text = button_text
+        self.button_action = button_action
+        self.content_text = content_text
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Убираем рамку и делаем фон полупрозрачным
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # Создаем контент оверлея
+        self.label = QLabel(self.content_text, self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.label.setWordWrap(True)
+        self.label.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 180);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            font-size: 16px;
+        """)
+        self.button = QPushButton(self.button_text)
+        self.button.setStyleSheet('background-color: #35B797; color: #F3F3F3; font-weight: 500;')
+        self.button.clicked.connect(self.button_action)
+        
+        self.setFixedSize(240, 240)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        layout.addWidget(self.button)
+        self.setLayout(layout)
+        
+        # Позиционируем относительно родителя
+        self.update_position()
+        
+    def update_position(self):
+        if self.parent():
+            # Центрируем относительно родителя
+            self.move(self.parent().rect().center())
+
+class OverlayWidget2B(QWidget):
+    def __init__(self, content_text: str, button_text1: str, button_text2: str, button_action1, button_action2, button1_enabled=True, button2_enabled=True, parent=None):
+        super().__init__(parent)
+
+        self.button_text1 = button_text1
+        self.button_action1 = button_action1
+        self.button_text2 = button_text2
+        self.button_action2 = button_action2
+        self.content_text = content_text
+        self.button1_enabled = button1_enabled
+        self.button2_enabled = button2_enabled
+        self.setup_ui()
+        
+    def setup_ui(self):
+        BUTTON_COLORS = {
+            True: "#35B797",
+            False: "#258772",
+        }
+        # Убираем рамку и делаем фон полупрозрачным
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # Создаем контент оверлея
+        self.label = QLabel(self.content_text, self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.label.setWordWrap(True)
+        self.label.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 180);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            font-size: 16px;
+        """)
+        button_layout = QHBoxLayout()
+
+
+        self.button1 = QPushButton(self.button_text1)
+        self.button1.setStyleSheet(f'background-color: {BUTTON_COLORS[self.button1_enabled]}; color: #F3F3F3; font-weight: 500;')
+        self.button1.clicked.connect(self.button_action1)
+        self.button1.setEnabled(self.button1_enabled)
+
+        self.button2 = QPushButton(self.button_text2)
+        self.button2.setStyleSheet(f'background-color: {BUTTON_COLORS[self.button2_enabled]}; color: #F3F3F3; font-weight: 500;')
+        self.button2.clicked.connect(self.button_action2)
+        self.button2.setEnabled(self.button2_enabled)
+        
+        button_layout.addWidget(self.button1)
+        button_layout.addWidget(self.button2)
+
+        self.setFixedSize(240, 240)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        layout.addItem(button_layout)
+        self.setLayout(layout)
+        
+        # Позиционируем относительно родителя
+        self.update_position()
+        
+    def update_position(self):
+        if self.parent():
+            # Центрируем относительно родителя
+            self.move(self.parent().rect().center())
